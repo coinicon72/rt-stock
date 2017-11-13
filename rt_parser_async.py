@@ -26,10 +26,10 @@ async def recv(server, ports):
         print(count, d['count'], datetime.now().time())
 
 
-async def timer():
+async def timer(interval=3):
     while True:
-        await asyncio.sleep(5)
-        print('timing ...')
+        await asyncio.sleep(interval)
+        print('...')
         
 
 def main(server, ports):
@@ -50,4 +50,4 @@ if __name__ == '__main__':
     args = argparser.parse_args()
     print(args)
 
-    main(arg.server, args.ports)
+    main(args.server, args.ports)

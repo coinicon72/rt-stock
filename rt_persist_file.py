@@ -18,18 +18,22 @@ zmq.asyncio.install()
 ctx = Context.instance()
 
 
+FILE_NAME_PATTERN = 'tick_{}.json'
 class TickStorage():
-    def __init__(self, fn):
+    def __init__(self):
+        fn = FILE_NAME_PATTERN.format(datetime.now().date())
         self.file = open(fn, 'a')
 
     def persist(self, gen):
         if inspect.isgenerator(gen):
             for r in gen:
                 self.file.write(r + '\n')
-
-            self.file.flush()
+        elif isinstance(gen, str):
+            self.file.write(gen + '\n')
         else:
-            raise Exception('argumment gen not a generator')
+            self.file.write(str(gen) + '\n')
+
+        self.file.flush()
 
     def close(self):
         self.file.close()
@@ -47,27 +51,28 @@ def get_socket(server, ports):
 # SQL_INSERT = 'insert or replace into tick (ts, code, last, last_vol, last_amt) values (?, ?, ?, ?, ?)'
 # SQL_INSERT = 'replace into tick (ts, code, last, last_vol, last_amt) values (from_unixtime(%s), %s, %s, %s, %s)'
 async def recv(socket):
-    storage = TickStorage('tick.json')
+    storage = TickStorage()
     socket.subscribe(u'')
 
     def tick_generator(d):
         ts = d['t']
         for c in d['d']:
-            yield f"'ts': {ts}, 'code': '{c['c']}', 'rt_last': {c['rt_last']}, 'rt_last_vol': {c['rt_last_vol']}, 'rt_last_amt': {c['rt_last_amt']}"
+            yield '{' + f'"ts": {ts}, "code": "{c["c"]}", "rt_last_vol": {c["rt_last_vol"]}' + '}'
 
     try:
         count = 0
         while True:
             z = await socket.recv()
-            j = zlib.decompress(z)
-            d = json.loads(j.decode())
+            j = zlib.decompress(z).decode()
+            # d = json.loads(j)
 
             # v = []
             # ts = d['t']
             # for c in d['d']:
             #     v.append((ts, c['c'], c['rt_last'], c['rt_last_vol'], c['rt_last_amt']))
 
-            storage.persist(tick_generator(d))
+            # storage.persist(tick_generator(d))
+            storage.persist(j)
 
             count += 1
             print(f'\r{count}\t\t{datetime.now().time()}', end='')
